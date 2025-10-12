@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Hydro Heroes — Play</title>
+  <style>
+    :root{--bg:#0f0f12;--ui:#bdfcff;--good:#6dd5ff;--bad:#65ff4b;--ring:#2a2e36}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,Arial;background:var(--bg);color:#e9f6ff;display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px}
+    .hud{width:min(1100px,96vw);display:flex;justify-content:space-between;align-items:center}
+    .pill{background:rgba(255,255,255,0.03);padding:8px 12px;border-radius:999px;border:2px solid rgba(255,255,255,0.06);font-weight:800}
+    .arena{width:min(1100px,96vw);aspect-ratio:16/7;position:relative;overflow:hidden;border:3px solid var(--ring);border-radius:12px;
+      /* sunny sky: blue gradient with soft clouds and a warm sun */
+      background:
+        radial-gradient(circle at 80% 18%, rgba(255,243,150,0.95) 0 6%, rgba(255,200,0,0.45) 6% 12%, transparent 12%),
+        radial-gradient(circle at 22% 20%, rgba(255,255,255,0.95) 0 6%, rgba(255,255,255,0.7) 6% 12%, transparent 12%),
+        radial-gradient(circle at 68% 32%, rgba(255,255,255,0.9) 0 6%, rgba(255,255,255,0.6) 6% 10%, transparent 10%),
+        linear-gradient(180deg,#87ceeb 0%,#cfefff 60%,#e6f9ff 100%);
+      background-size: cover, cover, cover, cover;
+    }
+  .base{position:absolute;bottom:6%;width:140px;height:595px;display:grid;place-items:center;z-index:0}
+    .base.good{right:12px}.base.bad{left:12px}
+  .tower{width:160px;height:535px;border-radius:14px;display:flex;align-items:center;justify-content:center;padding:14px;position:relative;background:transparent;border:0;z-index:0}
+  /* draw a shorter visual tower while keeping the container height for image positioning */
+  .tower::before{content:'';position:absolute;left:50%;transform:translateX(-50%);bottom:14px;width:88%;height:295px;border-radius:12px;background:linear-gradient(180deg,#1e2430,#0f1218);border:3px solid #323846;box-sizing:border-box;z-index:0}
+  .tower svg{display:block;position:absolute;left:50%;transform:translateX(-50%);bottom:89px;height:220px;width:auto;z-index:1}
+  .tower .tower-img{position:absolute;left:50%;transform:translateX(-50%);bottom:89px;height:220px;width:auto;z-index:1;display:block;}
+  /* small tower hp bar displayed above the tower image */
+  .tower-hpbar{position:absolute;left:50%;transform:translateX(-50%);bottom:318px;width:84px;height:8px;background:#111;border:2px solid #222;border-radius:8px;overflow:hidden;z-index:2}
+  .tower-hpbar>i{display:block;height:100%;background:linear-gradient(90deg,#56d1ff,#7fe0ff);width:100%}
+  /* Units should appear above the jerry can image */
+  .unit{position:absolute;bottom:34%;width:56px;height:56px;transform:translate(-50%,0);display:grid;place-items:center;pointer-events:none;z-index:2}
+  .laneLine{display:none; /* removed horizontal lane line */}
+  .ground{position:absolute;left:0;right:0;bottom:0;height:36%;background:linear-gradient(180deg,#6fc36f,#2e9a3a);border-top:2px solid rgba(0,0,0,0.2)}
+
+    .unit{position:absolute;bottom:34%;width:56px;height:56px;transform:translate(-50%,0);display:grid;place-items:center;pointer-events:none}
+  .sprite{width:52px;height:52px;border-radius:50%;border:2px solid rgba(0,0,0,0.5);box-shadow:0 10px 18px rgba(0,0,0,0.6);position:relative;overflow:visible}
+  .ally .sprite{background:linear-gradient(180deg,#bfe6ef,#78c1d6);border-color:#2fa0bb}
+  .enemy .sprite{background:linear-gradient(180deg,#c7e6c7,#8acf8a);border-color:#2fa04f}
+
+    /* Per-type ally visuals */
+  .ally.speedy .sprite{background:radial-gradient(circle at 35% 30%,#f3fbff 0 10%,#a8d9ea 11% 40%,#4aaad1 41% 100%);width:46px;height:46px}
+  .ally.tank .sprite{background:linear-gradient(180deg,#4fa6bf,#288fb0);width:60px;height:60px;border-radius:12px}
+  .ally.ranger .sprite{box-shadow:0 0 0 3px rgba(0,0,0,0.12) inset}
+  .ally.splasher .sprite{background:radial-gradient(circle at 40% 25%,#f0fbff 0 10%,#7ecfe8 11% 35%,#4aaad1 36% 100%)}
+
+    /* Per-type enemy visuals */
+  .enemy.grub .sprite{background:radial-gradient(circle at 35% 30%,#d6f0c2 0 12%,#99d077 13% 40%,#4f8f2a 41% 100%)}
+  .enemy.glob .sprite{background:radial-gradient(circle at 40% 30%,#ffe6f2 0 12%,#ffb3d6 13% 40%,#ff7fb3 41% 100%);width:60px;height:60px}
+  .enemy.spitter .sprite{background:radial-gradient(circle at 35% 30%,#bfe6bf 0 12%,#6fbf59 13% 25%,#4f8f2a 26% 60%,#2f7a1a 61% 100%)}
+  .enemy.swarm .sprite{width:40px;height:40px;background:radial-gradient(circle at 35% 30%,#d6f0c2 0 12%,#b0d48a 13% 40%,#88b759 41% 100%)}
+
+  .hpbar{position:absolute;top:-18px;left:50%;transform:translateX(-50%);height:10px;width:100px;border-radius:8px;background:#111;border:2px solid #222;overflow:hidden}
+    .hpbar>i{position:absolute;inset:0;background:linear-gradient(90deg,#56d1ff,#7fe0ff);width:100%}
+
+  .panel{width:min(1100px,96vw);display:flex;gap:10px;justify-content:space-between;align-items:center;position:relative}
+  .panel .cards{display:flex;gap:8px;position:absolute;left:50%;transform:translateX(-50%);top:20px}
+    .card{background:#0f1418;border:2px solid #263041;border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+  button{background:transparent;color:var(--ui);border:2px solid var(--ui);border-radius:10px;padding:6px 10px;font-weight:800;cursor:pointer}
+  /* Make the upgrade/storage button larger and more rectangular. Use fixed positioning so it doesn't move with the panel. */
+  #upgradeBtn{width:140px;height:75px;min-width:140px;min-height:75px;border-radius:10px;padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1;text-align:center;white-space:normal;transform:none;position:fixed;left:500px;bottom:250px;z-index:50}
+  /* Cannon button: same size, independent fixed position. Remove the translate so it's not tied to the panel container. */
+  #cannonBtn{width:140px;height:75px;min-width:140px;min-height:75px;border-radius:10px;padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1;text-align:center;white-space:normal;transform:none;position:fixed;right:500px;bottom:250px;overflow:hidden;z-index:50}
+      /* visual 'water' fill inside the cannon button */
+      #cannonBtn .cannon-fill{position:absolute;left:0;bottom:0;width:100%;height:100%;background:linear-gradient(180deg,#56d1ff,#7fe0ff);z-index:0;transition:height 0.15s linear;pointer-events:none;opacity:0.98}
+      #cannonBtn .cannon-label{position:relative;z-index:1;pointer-events:none}
+  /* Position the right column at the panel's right edge so the storage button sits to the right */
+  /* Place the storage button left of the centered spawners. Adjust the calc(...) value if you want it closer/further. */
+  .panel-right{display:flex;flex-direction:column;gap:6px;align-items:flex-end;padding-top:20px;position:fixed;left:calc(50% - 460px);bottom:150px}
+    button[disabled]{opacity:.35;cursor:not-allowed}
+
+  /* Water cannon projectile */
+  .cannon-shot{position:absolute;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle,#dff8ff,#5fcfff);box-shadow:0 8px 16px rgba(95,207,255,0.18);pointer-events:none;transform:translate(-50%,-50%);opacity:1;z-index:30}
+  .cannon-info{font-size:12px;color:rgba(255,255,255,0.7);display:block;text-align:right}
+
+  /* Explosion visuals (used by Water Cannon) */
+  .explosion{position:absolute;pointer-events:none;z-index:40}
+  .explosion-core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(0);border-radius:50%;background:radial-gradient(circle,#ffffff,#bff3ff 40%,#5fcfff 70%);box-shadow:0 8px 30px rgba(95,207,255,0.25);opacity:0}
+  @keyframes explosion-burst{0%{transform:translate(-50%,-50%) scale(0);opacity:0}20%{transform:translate(-50%,-50%) scale(1);opacity:0.95}100%{transform:translate(-50%,-50%) scale(1.6);opacity:0}}
+  .explosion-core.play-explosion{animation:explosion-burst .6s cubic-bezier(.2,.9,.2,1) forwards}
+  .explosion-frag{position:absolute;left:50%;top:50%;width:8px;height:8px;border-radius:50%;background:radial-gradient(circle,#dff8ff,#56d1ff);transform:translate(-50%,-50%) scale(0.6);opacity:1;transition:transform .6s cubic-bezier(.2,.8,.2,1),opacity .6s linear}
+
+  /* unit health bar */
+  .bar{position:absolute;top:-70px;left:50%;transform:translateX(-50%);width:92px;height:10px;background:#111;border-radius:8px;border:2px solid rgba(0,0,0,0.4);overflow:hidden}
+  .bar span{display:block;height:100%;width:100%;background:linear-gradient(90deg,#56d1ff,#7fe0ff)}
+
+    /* Animation effects */
+    .effect{position:absolute;left:50%;top:50%;transform-origin:center;pointer-events:none}
+    /* Blade swipe (Drip) */
+    .blade{width:56px;height:12px;background:linear-gradient(90deg,#bfefff,#56d1ff);border-radius:8px;opacity:0;transform:translate(-50%,-50%) rotate(-30deg) scaleX(0.2)}
+    @keyframes blade-swipe{0%{opacity:0;transform:translate(-50%,-50%) rotate(-30deg) scaleX(0.2)}20%{opacity:1;transform:translate(-50%,-50%) rotate(-10deg) scaleX(1.1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(10deg) scaleX(1.4)}}
+
+    /* Hammer smash (Bubble) */
+    .hammer{width:34px;height:34px;background:linear-gradient(180deg,#fff,#cfefff);border-radius:6px;opacity:0;transform:translate(-50%,-120%) scale(0.6)}
+    @keyframes hammer-smash{0%{opacity:0;transform:translate(-50%,-120%) scale(0.6)}30%{opacity:1;transform:translate(-50%,-40%) scale(1.05)}60%{transform:translate(-50%,-60%) scale(0.95)}100%{opacity:0;transform:translate(-50%,-120%) scale(0.6)}}
+
+    /* Projectile (Sprinkler) */
+    .projectile{position:absolute;width:14px;height:14px;border-radius:50%;background:radial-gradient(circle,#bff3ff,#56d1ff);box-shadow:0 6px 12px rgba(86,209,255,0.24);pointer-events:none;transform:translate(-50%,-50%);opacity:1}
+    @keyframes projectile-fly{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0.95;transform:translate(-50%,-50%) scale(1)}}
+
+    /* Big splash (Splash) */
+    .splash{position:absolute;border-radius:50%;background:radial-gradient(circle,#e6fbff55,#6dd5ff33);opacity:0;transform:translate(-50%,-50%) scale(0)}
+    @keyframes splash-burst{0%{opacity:0;transform:translate(-50%,-50%) scale(0)}20%{opacity:0.9;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.4)}}
+
+    /* helper: trigger class */
+    .play-blade{animation:blade-swipe .36s linear forwards}
+    .play-hammer{animation:hammer-smash .45s cubic-bezier(.2,.9,.2,1) forwards}
+    .play-projectile{animation:projectile-fly .9s linear forwards}
+    .play-splash{animation:splash-burst .5s ease-out forwards}
+    /* Overlay (end screen) */
+    .overlay{position:fixed;left:0;top:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;background:rgba(5,10,15,0.6);z-index:60}
+    .overlay.show{display:flex}
+    .overlay .overlay-card{background:#0f1418;border:2px solid #263041;padding:20px;border-radius:10px;text-align:center;color:#e9f6ff}
+  </style>
+</head>
+<body>
+  <div class="hud">
+    <div class="pill">💧 Water: <span id="waterVal">0</span>/<span id="capVal">100</span></div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <div>Rate: <span id="rateVal">3</span>/s</div>
+      <div style="width:140px;height:8px;background:#222;border-radius:6px;overflow:hidden">
+        <span id="meterFill" style="display:block;height:100%;width:0;background:linear-gradient(90deg,#56d1ff,#7fe0ff)"></span>
+      </div>
+    </div>
+    <div style="text-align:center;font-weight:900;letter-spacing:1px">HYDRO HEROES</div>
+    <div style="display:flex;gap:8px"><button id="pauseBtn">Pause</button><button id="restartBtn">Restart</button></div>
+  </div>
+
+  <div class="arena" id="arena">
+    <div class="base bad" id="badBase">
+      <div class="hpbar"><i id="badHP" style="width:100%"></i></div>
+      <div class="tower">
+        <!-- small tower health bar (mirrors base HP) -->
+        <div class="tower-hpbar"><i id="badTowerHP" style="width:100%"></i></div>
+      </div>
+    </div>
+    <div class="base good" id="goodBase">
+      <div class="hpbar"><i id="goodHP" style="width:100%"></i></div>
+      <div class="tower">
+        <!-- small tower health bar (mirrors base HP) -->
+        <div class="tower-hpbar"><i id="goodTowerHP" style="width:100%"></i></div>
+        <!-- Prefer the provided PNG at assets/jerry.png. If it fails to load, the inline SVG below remains as a visual fallback. -->
+  <img id="towerPng" alt="Jerry can" class="tower-img" style="width:100%;height:100%;object-fit:contain;display:block" />
+
+        <!-- Inline SVG fallback (kept for when PNG isn't present) - simple yellow jerry can -->
+        <svg viewBox="0 0 86 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+          <rect x="8" y="12" width="70" height="96" rx="8" ry="8" fill="#ffd100" />
+          <rect x="18" y="2" width="50" height="20" rx="6" ry="6" fill="#ffd100" />
+          <rect x="22" y="34" width="42" height="10" rx="3" fill="#e6b800" opacity="0.16" />
+          <rect x="22" y="52" width="42" height="10" rx="3" fill="#e6b800" opacity="0.12" />
+          <circle cx="66" cy="34" r="4" fill="#e6b800" />
+          <!-- iconic cutout shape -->
+          <path d="M33 28 L43 44 L53 28 L63 44 L53 76 L33 76 L23 44 Z" fill="#ffd100" stroke="#e6b800" stroke-width="2" />
+        </svg>
+      </div>
+    </div>
+    <script>
+      // Try to load the provided PNG with a cache-busting param.
+      (function(){
+        const img = document.getElementById('towerPng');
+        if(!img) return;
+        const svgFallback = img.nextElementSibling;
+        img.onload = () => { if(svgFallback) svgFallback.style.display = 'none'; img.style.display = 'block'; };
+        img.onerror = () => { img.style.display = 'none'; if(svgFallback) svgFallback.style.display = 'block'; };
+        // Set src with timestamp to avoid stale cache
+        img.src = 'assets/jerry.png?v=' + Date.now();
+      })();
+    </script>
+    <div class="laneLine"></div>
+    <div class="ground"></div>
+  </div>
+
+  <div class="panel">
+    <div class="cards" style="display:flex;gap:8px">
+      <div class="card"><strong>Drip</strong><small>Cheap, fast</small><div style="font-weight:800">15💧</div><button class="spawnBtn" data-type="speedy">Spawn</button></div>
+      <div class="card"><strong>Bubble</strong><small>Tank</small><div style="font-weight:800">35💧</div><button class="spawnBtn" data-type="tank">Spawn</button></div>
+      <div class="card"><strong>Sprinkler</strong><small>Ranged</small><div style="font-weight:800">45💧</div><button class="spawnBtn" data-type="ranger">Spawn</button></div>
+      <div class="card"><strong>Splash</strong><small>AoE</small><div style="font-weight:800">60💧</div><button class="spawnBtn" data-type="splasher">Spawn</button></div>
+    </div>
+    <div class="panel-right">
+  <button id="cannonBtn"><span class="cannon-fill" aria-hidden="true"></span><span class="cannon-label">Water Cannon</span></button>
+  <small id="cannonInfo" class="cannon-info"></small>
+      <button id="upgradeBtn">Upgrade Storage (+50 cap) – 40💧</button>
+      <small id="upgradeInfo"></small>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay">
+    <div class="overlay-card">
+      <h2 id="endTitle">Area Purified!</h2>
+      <p id="endMsg">You defeated the pollutant horde.</p>
+      <button id="playAgain">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    /************** Config **************/
+    const arena = document.getElementById('arena');
+    const W = () => arena.clientWidth;
+    const GROUND_Y = 0; // we position via bottom %, so not used
+
+    // Bases
+    const baseGood = { el: document.getElementById('goodBase'), hpEl: document.getElementById('goodHP'), maxHP: 600, hp: 600, x: () => W() - 60 };
+    const baseBad  = { el: document.getElementById('badBase'),  hpEl: document.getElementById('badHP'),  maxHP: 600, hp: 600,  x: () => 60 };
+
+    // Economy
+    let water = 0, capacity = 100, income = 3, upgradeCost = 40, upgrades = 0;
+    const waterVal = document.getElementById('waterVal');
+    const capVal   = document.getElementById('capVal');
+    const rateVal  = document.getElementById('rateVal');
+    const meterFill= document.getElementById('meterFill');
+    const upgradeBtn = document.getElementById('upgradeBtn');
+    const upgradeInfo= document.getElementById('upgradeInfo');
+
+    // Overlay & controls
+    const overlay = document.getElementById('overlay');
+    const endTitle = document.getElementById('endTitle');
+    const endMsg = document.getElementById('endMsg');
+    const playAgain = document.getElementById('playAgain');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const restartBtn = document.getElementById('restartBtn');
+
+    // Ally buttons
+    const spawnButtons = Array.from(document.querySelectorAll('.spawnBtn'));
+
+    // Unit templates
+    // speed in px/s, dps per second, range (0 = melee), aoeRadius (optional)
+    const allyTypes = {
+      speedy:  {name:'Drip',     class:'speedy',   hp: 55,  speed: 85,  dps: 14, range: 0,  cost:15, anim:'blade'},
+      tank:    {name:'Bubble',   class:'tank',     hp: 180, speed: 45,  dps: 10, range: 0,  cost:35, anim:'hammer'},
+      ranger:  {name:'Sprinkler',class:'ranger',   hp: 70,  speed: 60,  dps: 18, range: 120,cost:45, anim:'beam'},
+      splasher:{name:'Splash',   class:'splasher', hp: 120, speed: 40,  dps: 40, range: 40, aoe:60, atkInterval:0.9, cost:60, anim:'splash'},
+    };
+    const enemyTypes = {
+      grub:    {name:'Grub',     class:'',         hp: 60,  speed: 70,  dps: 12, range: 0,  cost:10, anim:'blade'},
+      glob:    {name:'Glob',     class:'big',      hp: 150, speed: 42,  dps: 12, range: 0,  cost:20, anim:'hammer'},
+      spitter: {name:'Spitter',  class:'spitter',  hp: 70,  speed: 55,  dps: 16, range: 110,cost:25, anim:'beam'},
+      swarm:   {name:'Swarm',    class:'',         hp: 35,  speed: 95,  dps: 10, range: 0,  cost:8 , anim:'blade'},
+    };
+    const enemyPool = ['grub','glob','spitter','swarm'];
+
+    // State
+    let allies = []; // {el,x,side, type, ...}
+    let enemies = [];
+    let lastTime = performance.now();
+    let paused = false;
+    let gameOver = false;
+
+    /************** Helpers **************/
+    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+    function fmt(n){ return Math.floor(n); }
+    function updateEconomyUI(){
+      waterVal.textContent = fmt(water);
+      capVal.textContent   = capacity;
+      rateVal.textContent  = income;
+      meterFill.style.width = `${(water/capacity)*100}%`;
+      upgradeBtn.disabled = water < upgradeCost;
+      upgradeInfo.textContent = `Upgrades: ${upgrades}`;
+      // enable/disable spawn buttons based on cost
+      spawnButtons.forEach(btn=>{
+        const t = allyTypes[btn.dataset.type];
+        btn.disabled = (water < t.cost) || gameOver || paused;
+      });
+    }
+    function updateBaseHPBars(){
+      baseGood.hpEl.style.width = `${(baseGood.hp/baseGood.maxHP)*100}%`;
+      baseBad.hpEl.style.width  = `${(baseBad.hp/baseBad.maxHP)*100}%`;
+      // mirror base hp into tower hp bars if present
+      const goodTower = document.getElementById('goodTowerHP');
+      const badTower = document.getElementById('badTowerHP');
+      if(goodTower) goodTower.style.width = `${(baseGood.hp/baseGood.maxHP)*100}%`;
+      if(badTower)  badTower.style.width  = `${(baseBad.hp/baseBad.maxHP)*100}%`;
+    }
+
+    function makeUnit(isAlly, tkey){
+      const T = isAlly ? allyTypes[tkey] : enemyTypes[tkey];
+      const el = document.createElement('div');
+    // include the type key as a class for per-type styling (e.g., 'speedy', 'grub')
+    el.className = `unit ${isAlly ? 'ally' : 'enemy'} ${T.class||''} ${tkey}`;
+      el.style.left = (isAlly ? W()-120 : 120) + 'px';
+  const bar = document.createElement('div'); bar.className='bar';
+  const barFill = document.createElement('span'); bar.appendChild(barFill);
+  const sprite = document.createElement('div'); sprite.className='sprite';
+  // effect container for animations
+  const fx = document.createElement('div'); fx.className = 'effect'; sprite.appendChild(fx);
+  el.appendChild(bar); el.appendChild(sprite);
+      arena.appendChild(el);
+
+      const u = {
+        side: isAlly?'ally':'enemy',
+        typeKey:tkey,
+        T,
+        el,
+        barFill,
+        hp:T.hp,
+        maxHP:T.hp,
+        x: isAlly ? W()-120 : 120,
+        speed: T.speed,
+        range: T.range||0,
+        dps: T.dps,
+        aoe: T.aoe||0,
+        atkInterval: T.atkInterval || 0.5,
+        atkCooldown: 0,
+        fighting:false,
+        target:null,
+      };
+      (isAlly?allies:enemies).push(u);
+      // initial health bar fill
+      u.barFill.style.width = '100%';
+      if(isAlly) u.barFill.style.background = 'linear-gradient(90deg,#56d1ff,#7fe0ff)'; else u.barFill.style.background = 'linear-gradient(90deg,#ff9aa8,#ff6b6b)';
+      return u;
+    }
+    function removeUnit(list, u){
+      u.el.remove();
+      const idx = list.indexOf(u);
+      if(idx>=0) list.splice(idx,1);
+    }
+    
+    /* Animation helpers */
+    function triggerBlade(attacker){ const fx = attacker.el.querySelector('.effect'); if(!fx) return; const blade = document.createElement('div'); blade.className='blade play-blade'; fx.appendChild(blade); blade.addEventListener('animationend',()=>blade.remove()); }
+    function triggerHammer(attacker){ const fx = attacker.el.querySelector('.effect'); if(!fx) return; const hammer = document.createElement('div'); hammer.className='hammer play-hammer'; fx.appendChild(hammer); hammer.addEventListener('animationend',()=>hammer.remove()); }
+    function triggerBeam(attacker,target){
+      if(!attacker || !target) return;
+      const aRect = attacker.el.getBoundingClientRect();
+      const tRect = target.el.getBoundingClientRect();
+      const arenaRect = arena.getBoundingClientRect();
+      const startX = aRect.left + aRect.width/2 - arenaRect.left;
+      const startY = aRect.top + aRect.height/2 - arenaRect.top;
+      const endX = tRect.left + tRect.width/2 - arenaRect.left;
+      const endY = tRect.top + tRect.height/2 - arenaRect.top;
+      const pr = document.createElement('div'); pr.className = 'projectile play-projectile'; pr.style.position='absolute'; pr.style.left = startX + 'px'; pr.style.top = startY + 'px'; pr.style.transition = 'left 0.24s linear, top 0.24s linear, opacity 0.24s linear'; arena.appendChild(pr);
+      requestAnimationFrame(()=>{ pr.style.left = endX + 'px'; pr.style.top = endY + 'px'; });
+      const cleanup = ()=>{ if(pr && pr.parentNode) pr.parentNode.removeChild(pr); };
+      pr.addEventListener('transitionend', cleanup); setTimeout(cleanup, 600);
+    }
+    function triggerSplashAt(targetOrX,y,size=80){
+      // targetOrX can be a unit object (preferred) or an x coordinate
+      let cx = targetOrX, cy = y;
+      if(targetOrX && typeof targetOrX === 'object' && targetOrX.el){
+        const tRect = targetOrX.el.getBoundingClientRect();
+        const arenaRect = arena.getBoundingClientRect();
+        cx = tRect.left + tRect.width/2 - arenaRect.left;
+        cy = tRect.top + tRect.height/2 - arenaRect.top;
+      }
+      const s = document.createElement('div'); s.className='splash play-splash'; s.style.position='absolute'; s.style.left = cx+'px'; s.style.top = cy+'px'; s.style.width = size+'px'; s.style.height = size+'px'; arena.appendChild(s); s.addEventListener('animationend',()=>s.remove()); }
+    
+    // New explosion helper: visual core + fragments and optional callback
+    function triggerExplosionAt(x,y,size=80,cb){
+      const e = document.createElement('div'); e.className = 'explosion'; e.style.position='absolute'; e.style.left = x + 'px'; e.style.top = y + 'px'; arena.appendChild(e);
+      const core = document.createElement('div'); core.className = 'explosion-core play-explosion'; core.style.width = size+'px'; core.style.height = size+'px'; e.appendChild(core);
+      // create some fragments
+      const frags = 6;
+      for(let i=0;i<frags;i++){
+        const f = document.createElement('div'); f.className='explosion-frag';
+        e.appendChild(f);
+        // random angle and distance
+        const ang = (i/frags) * Math.PI*2 + (Math.random()*0.6 - 0.3);
+        const dist = size*0.8 + Math.random()*size*0.6;
+        requestAnimationFrame(()=>{ f.style.transform = `translate(-50%,-50%) translate(${Math.cos(ang)*dist}px, ${Math.sin(ang)*dist}px) scale(0.8)`; f.style.opacity='0'; });
+      }
+      const cleanup = ()=>{ if(e && e.parentNode) e.parentNode.removeChild(e); if(cb) cb(); };
+      setTimeout(cleanup, 700);
+    }
+    function rectHit(a,b,dist=34){ return Math.abs(a.x - b.x) <= dist; }
+
+    /************** Spawning **************/
+    function spawnEnemyRandom(){
+      if(gameOver || paused) return;
+      // weighted simple choice
+      const pick = enemyPool[Math.floor(Math.random()*enemyPool.length)];
+      makeUnit(false, pick);
+      // next spawn random 3000–6000ms (much slower)
+      const next = 3000 + Math.random()*3000;
+      setTimeout(spawnEnemyRandom, next);
+    }
+
+    // Player buttons
+    spawnButtons.forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const k = btn.dataset.type;
+        const T = allyTypes[k];
+        if(paused || gameOver) return;
+        if(water >= T.cost){
+          water -= T.cost;
+          updateEconomyUI();
+          makeUnit(true, k);
+        }
+      });
+    });
+
+    // upgrades - only show when > 0
+    const upEl = document.getElementById('upgradeInfo');
+    if (upEl) {
+      if (upgrades > 0) {
+        upEl.textContent = `Upgrades: ${upgrades}`;
+        upEl.style.display = '';
+      } else {
+        // hide the element when there are no upgrades
+        upEl.style.display = 'none';
+      }
+    }
+    // upgrade button handler
+    upgradeBtn.addEventListener('click', ()=>{
+      if(water < upgradeCost || paused || gameOver) return;
+      water -= upgradeCost;
+      capacity += 50;
+      income += 1;
+      upgrades += 1;
+      upgradeCost = Math.ceil(upgradeCost * 1.45);
+      upgradeBtn.textContent = `Upgrade Storage (+50 cap, +1/s) – ${upgradeCost}💧`;
+      updateEconomyUI();
+    });
+
+    /* Water Cannon: 15s cooldown, fires a projectile halfway across the arena to the left */
+
+    const cannonBtn = document.getElementById('cannonBtn');
+    const cannonInfo = document.getElementById('cannonInfo');
+    const cannonFillEl = cannonBtn.querySelector('.cannon-fill');
+    let cannonCooldown = 0; // seconds remaining
+    const CANNON_COOLDOWN = 15;
+
+    function setCannonReady(ready){
+      cannonBtn.disabled = !ready || paused || gameOver;
+      // keep cannonInfo blank; visual state is communicated via the button fill
+      // if ready, ensure fill is full; otherwise keep current fill state
+      if(ready){ setCannonFillPercent(100); }
+    }
+
+    function setCannonFillPercent(pct){
+      pct = clamp(pct,0,100);
+      // we animate fill by adjusting the height of the fill element
+      if(cannonFillEl){ cannonFillEl.style.height = pct + '%'; }
+    }
+
+    cannonBtn.addEventListener('click', ()=>{
+      if(cannonCooldown > 0 || paused || gameOver) return;
+      const arenaRect = arena.getBoundingClientRect();
+  const startX = arenaRect.width - 80; // near the right inside edge
+  const startY = arenaRect.height * 0.18; // start higher
+  // place impact at the visual bottom-of-characters: .unit bottom:34% -> bottom-of-chars y = height * (1 - 0.34)
+  const impactY = arenaRect.height * (1 - 0.34);
+      const targetX = arenaRect.width / 2; // halfway across the arena
+      const SHOTS = 6;
+      const STAGGER_MS = 120;
+  const SHOT_DAMAGE = 12; // per-explosion damage (reduced to 12)
+      const SPLASH_RADIUS = 80;
+  const EXPLOSIONS_PER_SHOT = 3;
+  const EXPLOSION_SPREAD = 44; // px between explosions
+  const EXPLOSION_UP = 0; // place explosions at character-bottom height
+
+      for(let i=0;i<SHOTS;i++){
+        const delay = i * STAGGER_MS;
+        setTimeout(()=>{
+          // progressive X positions from start toward halfway
+          const frac = (i+1)/SHOTS;
+          const x = startX - (startX - targetX) * frac;
+          const shot = document.createElement('div');
+          shot.className = 'cannon-shot';
+          shot.style.left = x + 'px';
+          shot.style.top = startY + 'px';
+          arena.appendChild(shot);
+
+          // animate downward to mid-air impact (short duration)
+          shot.style.transition = 'top 0.35s cubic-bezier(.2,.8,.2,1), opacity 0.35s linear';
+          requestAnimationFrame(()=>{ shot.style.top = impactY + 'px'; shot.style.opacity = '0.95'; });
+
+          shot.addEventListener('transitionend', ()=>{
+            const rect = shot.getBoundingClientRect();
+            const arenaRect2 = arena.getBoundingClientRect();
+            const cx = rect.left + rect.width/2 - arenaRect2.left;
+            const cy = rect.top + rect.height/2 - arenaRect2.top;
+            // spawn multiple smaller explosions above the impact point
+            for(let ex=0; ex<EXPLOSIONS_PER_SHOT; ex++){
+              const dx = (ex - Math.floor(EXPLOSIONS_PER_SHOT/2)) * EXPLOSION_SPREAD;
+              const sx = cx + dx + (Math.random()*12 - 6);
+              const sy = cy + (Math.random()*6 - 3);
+              triggerExplosionAt(sx, sy, 64);
+              // damage enemies within splash radius for this explosion
+              for(const e of enemies.slice()){
+                if(typeof e.x === 'number' && Math.abs(e.x - sx) <= SPLASH_RADIUS){
+                  e.hp -= SHOT_DAMAGE;
+                  e.lastHitBy = { side: 'ally' };
+                  updateUnitHP(e);
+                }
+              }
+            }
+            // remove the visual projectile now that the explosions have spawned
+            if(shot && shot.parentNode) shot.parentNode.removeChild(shot);
+          });
+          // safety fallback: ensure shot is removed after 900ms in case 'transitionend' didn't fire
+          setTimeout(()=>{ try{ if(shot && shot.parentNode) shot.parentNode.removeChild(shot); }catch(e){} }, 900);
+        }, delay);
+      }
+
+  // start cooldown
+  cannonCooldown = CANNON_COOLDOWN;
+  setCannonReady(false);
+  // visually empty the cannon 'water' immediately
+  setCannonFillPercent(0);
+    });
+
+
+    pauseBtn.addEventListener('click', ()=>{
+      paused = !paused;
+      pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+      if(!paused) { lastTime = performance.now(); requestAnimationFrame(tick); }
+    });
+    restartBtn.addEventListener('click', resetGame);
+    playAgain.addEventListener('click', ()=>{ overlay.classList.remove('show'); resetGame(); });
+
+    /************** Combat **************/
+    function tryAcquireTarget(u){
+      const foes = u.side==='ally'? enemies : allies;
+      // prefer nearest foe in front
+      let best=null, bestD=1e9;
+      for(const e of foes){
+        const d = Math.abs(u.x - e.x);
+        if(d < bestD && d <= (u.range?u.range:36)) { best=e; bestD=d; }
+      }
+      if(best){
+        u.target = best;
+        u.fighting = (u.range===0 ? rectHit(u,best,36) : bestD<=u.range);
+      }else{
+        u.target=null; u.fighting=false;
+      }
+    }
+    function dealDamage(attacker, dt){
+      if(!attacker.target) return;
+      attacker.atkCooldown -= dt;
+      if(attacker.atkCooldown <= 0){
+        attacker.atkCooldown = attacker.atkInterval;
+        const dmg = attacker.dps * attacker.atkInterval;
+        // trigger animation for attacker types using the template 'anim' field
+        if(attacker.T && attacker.T.anim){
+          const anim = attacker.T.anim;
+          if(anim === 'blade') triggerBlade(attacker);
+          if(anim === 'hammer') triggerHammer(attacker);
+          if(anim === 'beam') triggerBeam(attacker, attacker.target);
+          if(anim === 'splash') triggerSplashAt(attacker.target, null, attacker.aoe);
+        }
+        if(attacker.aoe){
+          const foes = attacker.side==='ally'? enemies : allies;
+          for(const f of foes){
+            if(Math.abs(f.x - attacker.target.x) <= attacker.aoe) {
+              f.hp -= dmg;
+              // record last hitter
+              f.lastHitBy = attacker;
+              updateUnitHP(f);
+            }
+          }
+        }else{
+          attacker.target.hp -= dmg;
+          // record last hitter
+          attacker.target.lastHitBy = attacker;
+          updateUnitHP(attacker.target);
+        }
+      }
+    }
+    function updateUnitHP(u){
+      u.barFill.style.width = `${clamp(u.hp/u.maxHP,0,1)*100}%`;
+      if(u.hp <= 0){
+        const list = (u.side==='ally')?allies:enemies;
+        // if an enemy died and had a recent attacker that was an ally, reward water
+        if(u.side === 'enemy' && u.lastHitBy && u.lastHitBy.side === 'ally'){
+          const reward = u.T && u.T.cost ? u.T.cost : 0;
+          water = Math.min(capacity, water + reward);
+          updateEconomyUI();
+        }
+        removeUnit(list, u);
+      }
+    }
+
+    /************** Bases damage **************/
+    function unitAttacksBase(u, base){
+      u.atkCooldown -= frameDt;
+      if(u.atkCooldown<=0){
+        u.atkCooldown = u.atkInterval;
+        base.hp -= u.dps * u.atkInterval;
+        base.hp = Math.max(0, base.hp);
+        updateBaseHPBars();
+        if(base.hp<=0) endGame(base===baseBad ? 'win' : 'lose');
+      }
+    }
+
+    /************** Economy & Loop **************/
+    let econAccum = 0;
+    let frameDt = 0;
+
+    function gameStep(dt){
+      econAccum += dt;
+      // cannon cooldown timer (drive visual fill)
+      if(cannonCooldown > 0){
+        cannonCooldown = Math.max(0, cannonCooldown - dt);
+        const filled = (1 - (cannonCooldown / CANNON_COOLDOWN)) * 100; // 0% -> empty when just fired, 100% -> full when ready
+        setCannonFillPercent(filled);
+        if(cannonCooldown <= 0) setCannonReady(true);
+      }
+      if(econAccum >= 0.2){ // update every 0.2s
+        water = Math.min(capacity, water + income * 0.2);
+        econAccum = 0;
+        updateEconomyUI();
+  // cannon UI is driven by the button fill; no numeric update here
+      }
+
+      // Move / fight Allies
+      for(const u of allies){
+        // If base in range (left base)
+        if(u.x - baseBad.x() <= (u.range?u.range:46)){
+          u.fighting = true;
+          unitAttacksBase(u, baseBad);
+        }else{
+          tryAcquireTarget(u);
+          if(u.target){
+            // if ranged, keep distance; else stand and fight when touching
+            const dist = Math.abs(u.x - u.target.x);
+            if(u.range>0){
+              if(dist>u.range) u.x -= u.speed * dt; // move closer
+              else dealDamage(u, dt);
+            }else{
+              // melee: stop on contact
+              if(dist<=36){ u.fighting=true; dealDamage(u, dt); }
+              else u.x -= u.speed * dt;
+            }
+          }else{
+            u.x -= u.speed * dt;
+          }
+        }
+        u.el.style.left = `${u.x}px`;
+      }
+
+      // Move / fight Enemies
+      for(const u of enemies){
+        if(baseGood.x() - u.x <= (u.range?u.range:46)){
+          u.fighting = true;
+          unitAttacksBase(u, baseGood);
+        }else{
+          tryAcquireTarget(u);
+          if(u.target){
+            const dist = Math.abs(u.x - u.target.x);
+            if(u.range>0){
+              if(dist>u.range) u.x += u.speed * dt;
+              else dealDamage(u, dt);
+            }else{
+              if(dist<=36){ u.fighting=true; dealDamage(u, dt); }
+              else u.x += u.speed * dt;
+            }
+          }else{
+            u.x += u.speed * dt;
+          }
+        }
+        u.el.style.left = `${u.x}px`;
+      }
+    }
+
+    function tick(now){
+      if(paused || gameOver) return;
+      frameDt = Math.min(0.05, (now - lastTime)/1000); // clamp to avoid jumps
+      lastTime = now;
+      gameStep(frameDt);
+      requestAnimationFrame(tick);
+    }
+
+    function endGame(result){
+      gameOver = true;
+      overlay.classList.add('show');
+      overlay.classList.remove('win','lose');
+      if(result==='win'){
+        overlay.classList.add('win');
+        endTitle.textContent = 'Area Purified!';
+        endMsg.textContent = 'Your droplets washed away the pollutants!';
+      }else{
+        overlay.classList.add('lose');
+        endTitle.textContent = 'You Were Contaminated!';
+        endMsg.textContent = 'The pollutant horde overwhelmed your base.';
+      }
+    }
+
+    function clearUnits(){
+      for(const u of allies) u.el.remove();
+      for(const u of enemies) u.el.remove();
+      allies.length=0; enemies.length=0;
+    }
+
+    function resetGame(){
+      gameOver=false; paused=false;
+      pauseBtn.textContent='Pause';
+      clearUnits();
+      baseGood.hp = baseGood.maxHP;
+      baseBad.hp  = baseBad.maxHP;
+      updateBaseHPBars();
+
+      water = 30; capacity = 100; income = 3; upgradeCost=40; upgrades=0;
+      upgradeBtn.textContent = `Upgrade Storage (+50 cap, +1/s) – ${upgradeCost}💧`;
+      updateEconomyUI();
+
+      overlay.classList.remove('show');
+      lastTime = performance.now();
+      requestAnimationFrame(tick);
+
+      // start enemy spawns (delayed to give the player time)
+      setTimeout(spawnEnemyRandom, 4000);
+    }
+
+    // Initial UI and game start
+    updateEconomyUI();
+    updateBaseHPBars();
+    resetGame();
+
+    // Resize handling to keep starting positions sensible
+    window.addEventListener('resize', ()=>{
+      // snap units relatively; keep them where they are visually by updating left to numeric position already tracked
+      allies.forEach(u=>u.el.style.left = `${u.x}px`);
+      enemies.forEach(u=>u.el.style.left = `${u.x}px`);
+    });
+  })();
+  </script>
+  </body>
+  </html>
